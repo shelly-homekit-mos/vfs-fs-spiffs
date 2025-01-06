@@ -337,8 +337,8 @@ static int mgos_vfs_fs_spiffs_open(struct mgos_vfs_fs *fs, const char *path,
       if (fm->plain_size == DEFAULT_PLAIN_SIZE || (flags & O_TRUNC)) {
         /* Can only happen to new files. */
         if (s.size != 0) {
-          LOG(LL_ERROR, ("Corrupted encrypted file %s (es %u ps %u)", s.name,
-                         s.size, fm->plain_size));
+          LOG(LL_ERROR, ("Corrupted encrypted file %s (es %" PRIi32 " ps %u)",
+                         s.name, s.size, fm->plain_size));
           SPIFFS_close(spfs, fd);
           errno = ENXIO;
           return -1;
@@ -420,8 +420,8 @@ static ssize_t mgos_vfs_fs_spiffs_read(struct mgos_vfs_fs *fs, int fd,
           if (r < 0) {
             return set_spiffs_errno(spfs, r);
           } else {
-            LOG(LL_ERROR, ("Expected to read %d @ %d, got %d", sizeof(block),
-                           block_off, r));
+            LOG(LL_ERROR, ("Expected to read %d @ %" PRId32 ", got %" PRId32 "",
+                           sizeof(block), block_off, r));
             goto out_enc_err;
           }
         }
@@ -437,19 +437,21 @@ static ssize_t mgos_vfs_fs_spiffs_read(struct mgos_vfs_fs *fs, int fd,
       to_copy -= to_skip;
       if (to_copy > (size - num_read)) to_copy = (size - num_read);
       memcpy(dst, block + to_skip, to_copy);
-      LOG(LL_VERBOSE_DEBUG, ("enc_read po %d bo %d ts %d tc %d nr %d",
-                             plain_off, block_off, to_skip, to_copy, num_read));
+      LOG(LL_VERBOSE_DEBUG,
+          ("enc_read po %" PRId32 " bo %" PRId32 " ts %d tc %d nr %d",
+           plain_off, block_off, to_skip, to_copy, num_read));
       block_off += sizeof(block);
       num_read += to_copy;
       dst += to_copy;
     }
-    LOG(LL_VERBOSE_DEBUG, ("%d @ %d => %d", size, plain_off, num_read));
+    LOG(LL_VERBOSE_DEBUG,
+        ("%d @ %" PRId32 " => %d", size, plain_off, num_read));
     SPIFFS_lseek(spfs, fd, plain_off + num_read, SPIFFS_SEEK_SET);
     return num_read;
 
   out_enc_err:
-    LOG(LL_ERROR, ("Corrupted encrypted file %s (es %u ps %u)", s.name, s.size,
-                   fm->plain_size));
+    LOG(LL_ERROR, ("Corrupted encrypted file %s (es %" PRIi32 " ps %u)", s.name,
+                   s.size, fm->plain_size));
     errno = ENXIO;
     return -1;
   } else
@@ -498,8 +500,8 @@ static ssize_t mgos_vfs_fs_spiffs_write(struct mgos_vfs_fs *fs, int fd,
         if (r < 0) {
           return set_spiffs_errno(spfs, r);
         } else {
-          LOG(LL_ERROR,
-              ("Expected to read %d @ %d, got %d", prefix_len, block_off, r));
+          LOG(LL_ERROR, ("Expected to read %d @ %" PRId32 ", got %" PRId32 "",
+                         prefix_len, block_off, r));
           goto out_enc_err;
         }
       }
@@ -539,13 +541,14 @@ static ssize_t mgos_vfs_fs_spiffs_write(struct mgos_vfs_fs *fs, int fd,
         if (r < 0) {
           return set_spiffs_errno(spfs, r);
         } else {
-          LOG(LL_ERROR, ("Expected to write %d @ %d, got %d", sizeof(block),
-                         block_off, r));
+          LOG(LL_ERROR, ("Expected to write %d @ %" PRId32 ", got %" PRId32 "",
+                         sizeof(block), block_off, r));
           goto out_enc_err;
         }
       }
-      LOG(LL_DEBUG, ("enc_write s %d po %d bo %d ts %d tc %d nw %d", size,
-                     plain_off, block_off, to_skip, to_copy, num_written));
+      LOG(LL_DEBUG,
+          ("enc_write s %d po %" PRId32 " bo %" PRId32 " ts %d tc %d nw %d",
+           size, plain_off, block_off, to_skip, to_copy, num_written));
       block_off += sizeof(block);
       num_written += to_copy;
       data += to_copy;
@@ -557,17 +560,17 @@ static ssize_t mgos_vfs_fs_spiffs_write(struct mgos_vfs_fs *fs, int fd,
       fm->plain_size = new_plain_off;
       r = SPIFFS_fupdate_meta(spfs, fd, fm);
       if (r < 0) {
-        LOG(LL_ERROR, ("enc_write_update_meta: %d", r));
+        LOG(LL_ERROR, ("enc_write_update_meta: %" PRId32 "", r));
       }
     }
-    LOG(LL_DEBUG, ("%d @ %d => %d, po %d ps %d", size, plain_off, num_written,
-                   new_plain_off, (int) fm->plain_size));
+    LOG(LL_DEBUG, ("%d @ %" PRId32 " => %d, po %d ps %d", size, plain_off,
+                   num_written, new_plain_off, (int) fm->plain_size));
     SPIFFS_lseek(spfs, fd, new_plain_off, SPIFFS_SEEK_SET);
     return num_written;
 
   out_enc_err:
-    LOG(LL_ERROR, ("Corrupted encrypted file %s (es %u ps %u)", s.name, s.size,
-                   fm->plain_size));
+    LOG(LL_ERROR, ("Corrupted encrypted file %s (es %" PRIi32 " ps %u)", s.name,
+                   s.size, fm->plain_size));
     errno = ENXIO;
     return -1;
   } else
@@ -884,8 +887,8 @@ bool mgos_vfs_fs_spiffs_enc_fs(spiffs *spfs) {
   while (SPIFFS_readdir(&d, &e) != NULL) {
     char enc_name[SPIFFS_OBJ_NAME_LEN];
     struct file_meta *fm = (struct file_meta *) e.meta;
-    LOG(LL_DEBUG,
-        ("%s (%u) es %u ps %u", e.name, e.obj_id, e.size, fm->plain_size));
+    LOG(LL_DEBUG, ("%s (%u) es %" PRIi32 " ps %u", e.name, e.obj_id, e.size,
+                   fm->plain_size));
     if (fm->plain_size != DEFAULT_PLAIN_SIZE) continue; /* Already encrypted */
     if (!fm->encryption_not_started) {
       LOG(LL_ERROR, ("%s is partially encrypted; FS is corrupted.", e.name));
@@ -900,12 +903,14 @@ bool mgos_vfs_fs_spiffs_enc_fs(spiffs *spfs) {
                   (int) e.size, enc_name));
     fd = SPIFFS_open_by_dirent(spfs, &e, SPIFFS_RDWR, 0);
     if (fd < 0) {
-      LOG(LL_ERROR, ("%s: open failed: %d", e.name, SPIFFS_errno(spfs)));
+      LOG(LL_ERROR,
+          ("%s: open failed: %" PRId32 "", e.name, SPIFFS_errno(spfs)));
       goto out;
     }
     fm->encryption_not_started = false;
     if (SPIFFS_fupdate_meta(spfs, fd, fm) != SPIFFS_OK) {
-      LOG(LL_ERROR, ("%s: update_meta failed: %d", e.name, SPIFFS_errno(spfs)));
+      LOG(LL_ERROR,
+          ("%s: update_meta failed: %" PRId32 "", e.name, SPIFFS_errno(spfs)));
       goto out;
     }
     size_t enc_size = 0;
@@ -932,13 +937,14 @@ bool mgos_vfs_fs_spiffs_enc_fs(spiffs *spfs) {
       }
       if (SPIFFS_lseek(spfs, fd, fm->plain_size, SPIFFS_SEEK_SET) !=
           fm->plain_size) {
-        LOG(LL_ERROR, ("%s: seek failed: %d", e.name, SPIFFS_errno(spfs)));
+        LOG(LL_ERROR,
+            ("%s: seek failed: %" PRId32 "", e.name, SPIFFS_errno(spfs)));
         goto out;
       }
       int r = SPIFFS_write(spfs, fd, buf, blen);
       if (r != (int) blen) {
-        LOG(LL_ERROR, ("%s: write %d @ %d failed: %d", e.name, (int) blen,
-                       (int) fm->plain_size, SPIFFS_errno(spfs)));
+        LOG(LL_ERROR, ("%s: write %d @ %d failed: %" PRId32 "", e.name,
+                       (int) blen, (int) fm->plain_size, SPIFFS_errno(spfs)));
         goto out;
       }
       fm->plain_size += n;
@@ -946,14 +952,15 @@ bool mgos_vfs_fs_spiffs_enc_fs(spiffs *spfs) {
       mgos_wdt_feed();
     }
     if (SPIFFS_fupdate_meta(spfs, fd, fm) != SPIFFS_OK) {
-      LOG(LL_ERROR,
-          ("%s: final update_meta failed: %d", e.name, SPIFFS_errno(spfs)));
+      LOG(LL_ERROR, ("%s: final update_meta failed: %" PRId32 "", e.name,
+                     SPIFFS_errno(spfs)));
       goto out;
     }
     SPIFFS_close(spfs, fd);
     fd = -1;
     if (SPIFFS_rename(spfs, (const char *) e.name, enc_name) != SPIFFS_OK) {
-      LOG(LL_ERROR, ("%s: rename failed: %d", e.name, SPIFFS_errno(spfs)));
+      LOG(LL_ERROR,
+          ("%s: rename failed: %" PRId32 "", e.name, SPIFFS_errno(spfs)));
       goto out;
     }
     /*
